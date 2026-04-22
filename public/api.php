@@ -4,9 +4,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/repository.php';
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -17,50 +14,45 @@ $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? 'board';
 
 try {
+    $payload = inputJson();
+
     if ($method === 'GET' && $action === 'board') {
-        echo json_encode(['ok' => true, 'data' => getBoardData(1)]);
+        echo json_encode(['ok' => true, 'data' => fetchBoard(1)]);
         exit;
     }
 
-    $input = jsonInput();
-
     if ($method === 'POST' && $action === 'objective') {
-        $title = trim((string)($input['title'] ?? ''));
-        $parentId = isset($input['parent_id']) ? (int)$input['parent_id'] : null;
-        if ($title === '') {
-            throw new InvalidArgumentException('Objective title is required');
-        }
-        $id = createObjective(1, $parentId ?: null, $title);
+        $title = trim((string)($payload['title'] ?? ''));
+        if ($title === '') throw new InvalidArgumentException('Títol obligatori');
+        $id = createObjective(1, isset($payload['parent_id']) ? (int)$payload['parent_id'] : null, $title);
         echo json_encode(['ok' => true, 'id' => $id]);
         exit;
     }
 
     if ($method === 'PUT' && $action === 'objective-move') {
-        moveObjective((int)$input['id'], (string)$input['direction']);
+        moveObjective((int)$payload['id'], (string)$payload['direction']);
         echo json_encode(['ok' => true]);
         exit;
     }
 
     if ($method === 'DELETE' && $action === 'objective') {
-        deleteObjective((int)$input['id']);
+        deleteObjective((int)$payload['id']);
         echo json_encode(['ok' => true]);
         exit;
     }
 
     if ($method === 'POST' && $action === 'card') {
-        $title = trim((string)($input['title'] ?? ''));
-        if ($title === '') {
-            throw new InvalidArgumentException('Card title is required');
-        }
+        $title = trim((string)($payload['title'] ?? ''));
+        if ($title === '') throw new InvalidArgumentException('Títol de card obligatori');
 
         $id = createCard(
             1,
-            (int)$input['objective_id'],
-            (int)$input['column_id'],
+            (int)$payload['objective_id'],
+            (int)$payload['column_id'],
             $title,
-            isset($input['description']) ? (string)$input['description'] : null,
-            isset($input['code']) ? (string)$input['code'] : null,
-            isset($input['linked_yearly_code']) ? (string)$input['linked_yearly_code'] : null
+            isset($payload['description']) ? (string)$payload['description'] : null,
+            isset($payload['code']) ? (string)$payload['code'] : null,
+            isset($payload['linked_yearly_code']) ? (string)$payload['linked_yearly_code'] : null
         );
 
         echo json_encode(['ok' => true, 'id' => $id]);
@@ -68,17 +60,15 @@ try {
     }
 
     if ($method === 'PUT' && $action === 'card') {
-        $title = trim((string)($input['title'] ?? ''));
-        if ($title === '') {
-            throw new InvalidArgumentException('Card title is required');
-        }
+        $title = trim((string)($payload['title'] ?? ''));
+        if ($title === '') throw new InvalidArgumentException('Títol de card obligatori');
 
         updateCard(
-            (int)$input['id'],
+            (int)$payload['id'],
             $title,
-            isset($input['description']) ? (string)$input['description'] : null,
-            isset($input['code']) ? (string)$input['code'] : null,
-            isset($input['linked_yearly_code']) ? (string)$input['linked_yearly_code'] : null
+            isset($payload['description']) ? (string)$payload['description'] : null,
+            isset($payload['code']) ? (string)$payload['code'] : null,
+            isset($payload['linked_yearly_code']) ? (string)$payload['linked_yearly_code'] : null
         );
 
         echo json_encode(['ok' => true]);
@@ -86,19 +76,19 @@ try {
     }
 
     if ($method === 'PUT' && $action === 'card-move') {
-        moveCard((int)$input['id'], (int)$input['objective_id'], (int)$input['column_id'], max(1, (int)$input['position']));
+        moveCard((int)$payload['id'], (int)$payload['objective_id'], (int)$payload['column_id'], (int)$payload['position']);
         echo json_encode(['ok' => true]);
         exit;
     }
 
     if ($method === 'DELETE' && $action === 'card') {
-        deleteCard((int)$input['id']);
+        deleteCard((int)$payload['id']);
         echo json_encode(['ok' => true]);
         exit;
     }
 
     http_response_code(404);
-    echo json_encode(['ok' => false, 'error' => 'Endpoint not found']);
+    echo json_encode(['ok' => false, 'error' => 'Ruta no trobada']);
 } catch (Throwable $e) {
     http_response_code(422);
     echo json_encode(['ok' => false, 'error' => $e->getMessage()]);

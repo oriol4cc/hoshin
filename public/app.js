@@ -1,447 +1,287 @@
 const API = './api.php';
 
 const headerRow = document.getElementById('headerRow');
-const boardBody = document.getElementById('boardBody');
+const body = document.getElementById('boardBody');
 const addRootObjectiveBtn = document.getElementById('addRootObjectiveBtn');
-const controlsTpl = document.getElementById('objectiveControlsTpl');
 
-const cardDialog = document.getElementById('cardDialog');
-const cardForm = document.getElementById('cardForm');
-const cardDialogTitle = document.getElementById('cardDialogTitle');
-const cardTitle = document.getElementById('cardTitle');
-const cardDescription = document.getElementById('cardDescription');
-const cardCode = document.getElementById('cardCode');
-const cardLinkedCode = document.getElementById('cardLinkedCode');
-const yearlyCodeRow = document.getElementById('yearlyCodeRow');
-const linkedCodeRow = document.getElementById('linkedCodeRow');
-const cardCancelBtn = document.getElementById('cardCancelBtn');
+const editor = document.getElementById('cardEditor');
+const editorTitle = document.getElementById('editorTitle');
+const fieldTitle = document.getElementById('fieldTitle');
+const fieldDescription = document.getElementById('fieldDescription');
+const fieldCode = document.getElementById('fieldCode');
+const fieldLinked = document.getElementById('fieldLinked');
+const codeRow = document.getElementById('codeRow');
+const linkedRow = document.getElementById('linkedRow');
+const saveBtn = document.getElementById('saveCardBtn');
+const cancelBtn = document.getElementById('cancelCardBtn');
 
-let board = { columns: [], objectives: [], cards: [], yearly_codes: [] };
-let currentCardContext = null;
+let board = { columns: [], objectives: [], cards: [], yearly_codes: [], yearly_column_id: null };
+let editCtx = null;
 
-async function api(action, method = 'GET', body = null) {
+async function request(action, method = 'GET', data = null) {
   const res = await fetch(`${API}?action=${encodeURIComponent(action)}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
+    body: data ? JSON.stringify(data) : undefined,
   });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'API error');
-  return data;
+  const payload = await res.json();
+  if (!payload.ok) throw new Error(payload.error || 'Error API');
+  return payload.data || payload;
 }
 
-function sortedColumns() {
+function sortCols() {
   return [...board.columns].sort((a, b) => a.position - b.position);
 }
 
-function getYearlyColumnId() {
-  const first = sortedColumns()[0];
-  return first ? Number(first.id) : null;
-}
-
-function groupObjectives(objectives) {
-  const byParent = new Map();
-  objectives.forEach((obj) => {
-    const parent = obj.parent_id ?? 'root';
-    if (!byParent.has(parent)) byParent.set(parent, []);
-    byParent.get(parent).push(obj);
+function flattenObjectives() {
+  const map = new Map();
+  board.objectives.forEach((o) => {
+    const key = o.parent_id ?? 'root';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(o);
   });
 
-  const flattened = [];
+  const result = [];
   function walk(parent, level) {
-    const children = byParent.get(parent) || [];
-    children.sort((a, b) => a.position - b.position);
-    children.forEach((child) => {
-      flattened.push({ ...child, level });
-      walk(child.id, level + 1);
+    const children = (map.get(parent) || []).sort((a, b) => a.position - b.position);
+    children.forEach((c) => {
+      result.push({ ...c, level });
+      walk(c.id, level + 1);
     });
   }
-
   walk('root', 0);
-  return flattened;
+  return result;
 }
 
-function cardsInCell(objectiveId, columnId) {
+function cardsIn(objectiveId, columnId) {
   return board.cards
     .filter((c) => c.objective_id === objectiveId && c.column_id === columnId)
     .sort((a, b) => a.position - b.position);
 }
 
-function renderHeader() {
-  headerRow.innerHTML = '';
-  const objectiveTh = document.createElement('th');
-  objectiveTh.textContent = 'Objectius';
-  objectiveTh.className = 'objective-col';
-  headerRow.appendChild(objectiveTh);
-
-  sortedColumns().forEach((col) => {
-    const th = document.createElement('th');
-    th.textContent = col.title;
-    headerRow.appendChild(th);
-  });
-}
-
-function renderBoard() {
+function render() {
   renderHeader();
-  boardBody.innerHTML = '';
+  body.innerHTML = '';
 
-  const objectives = groupObjectives(board.objectives);
-  objectives.forEach((objective) => {
+  flattenObjectives().forEach((objective) => {
     const tr = document.createElement('tr');
-    tr.dataset.objectiveId = objective.id;
 
     const titleTd = document.createElement('td');
     titleTd.className = 'objective-cell';
     titleTd.style.paddingLeft = `${12 + objective.level * 20}px`;
 
-    const title = document.createElement('div');
-    title.className = 'objective-title';
-    title.textContent = objective.title;
+    titleTd.innerHTML = `
+      <div class="objective-title">${escapeHtml(objective.title)}</div>
+      <div class="objective-actions">
+        <button data-a="child">+Sub</button>
+        <button data-a="up">↑</button>
+        <button data-a="down">↓</button>
+        <button data-a="del">✕</button>
+      </div>
+    `;
 
-    const controls = controlsTpl.content.firstElementChild.cloneNode(true);
-    controls.addEventListener('click', (event) => onObjectiveAction(event, objective));
+    titleTd.querySelector('[data-a="child"]').onclick = async () => {
+      const t = prompt('Títol subobjectiu');
+      if (!t) return;
+      await request('objective', 'POST', { title: t, parent_id: objective.id });
+      await refresh();
+    };
+    titleTd.querySelector('[data-a="up"]').onclick = async () => {
+      await request('objective-move', 'PUT', { id: objective.id, direction: 'up' });
+      await refresh();
+    };
+    titleTd.querySelector('[data-a="down"]').onclick = async () => {
+      await request('objective-move', 'PUT', { id: objective.id, direction: 'down' });
+      await refresh();
+    };
+    titleTd.querySelector('[data-a="del"]').onclick = async () => {
+      if (!confirm('Eliminar objectiu i descendència?')) return;
+      await request('objective', 'DELETE', { id: objective.id });
+      await refresh();
+    };
 
-    titleTd.appendChild(title);
-    titleTd.appendChild(controls);
     tr.appendChild(titleTd);
 
-    sortedColumns().forEach((column) => {
+    sortCols().forEach((col) => {
       const td = document.createElement('td');
-      td.className = 'dropzone';
+      td.className = 'cell';
       td.dataset.objectiveId = objective.id;
-      td.dataset.columnId = column.id;
+      td.dataset.columnId = col.id;
 
-      const addBtn = document.createElement('button');
-      addBtn.className = 'add-card';
-      addBtn.textContent = '+ Card';
-      addBtn.addEventListener('click', async () => {
+      const add = document.createElement('button');
+      add.className = 'add-card';
+      add.textContent = '+ Card';
+      add.onclick = () => openEditor({ mode: 'create', objectiveId: objective.id, columnId: col.id });
+      td.appendChild(add);
+
+      cardsIn(objective.id, col.id).forEach((card) => td.appendChild(renderCard(card)));
+
+      td.addEventListener('dragover', (e) => e.preventDefault());
+      td.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        const id = Number(e.dataTransfer.getData('cardId'));
+        if (!id) return;
+        const pos = td.querySelectorAll('.card').length + 1;
         try {
-          await openCreateCardDialog(objective.id, column.id);
+          await request('card-move', 'PUT', {
+            id,
+            objective_id: Number(td.dataset.objectiveId),
+            column_id: Number(td.dataset.columnId),
+            position: pos,
+          });
+          await refresh();
         } catch (err) {
           alert(err.message);
         }
       });
-      td.appendChild(addBtn);
-
-      cardsInCell(objective.id, column.id).forEach((card) => td.appendChild(renderCard(card)));
-
-      td.addEventListener('dragover', (e) => e.preventDefault());
-      td.addEventListener('drop', (e) => onCardDrop(e, td));
 
       tr.appendChild(td);
     });
 
-    boardBody.appendChild(tr);
+    body.appendChild(tr);
+  });
+}
+
+function renderHeader() {
+  headerRow.innerHTML = '<th class="obj-col">Objectius</th>';
+  sortCols().forEach((c) => {
+    const th = document.createElement('th');
+    th.textContent = c.title;
+    headerRow.appendChild(th);
   });
 }
 
 function renderCard(card) {
-  const cardEl = document.createElement('article');
-  cardEl.className = 'card';
-  cardEl.draggable = true;
-  cardEl.dataset.cardId = card.id;
+  const el = document.createElement('article');
+  el.className = 'card';
+  el.draggable = true;
+  el.addEventListener('dragstart', (e) => e.dataTransfer.setData('cardId', String(card.id)));
 
-  const body = document.createElement('div');
-  body.className = 'card-body';
+  const metaCode = card.code ? `<small>Codi: ${escapeHtml(card.code)}</small>` : '';
+  const metaLinked = card.linked_yearly_code ? `<small>Vinculat: ${escapeHtml(card.linked_yearly_code)}</small>` : '';
 
-  const title = document.createElement('div');
-  title.className = 'card-title';
-  title.textContent = card.title;
-  body.appendChild(title);
+  el.innerHTML = `
+    <div class="card-main">
+      <strong>${escapeHtml(card.title)}</strong>
+      ${metaCode}
+      ${metaLinked}
+    </div>
+    <div class="card-actions">
+      <button data-a="edit">✎</button>
+      <button data-a="del">✕</button>
+    </div>
+  `;
 
-  if (card.code) {
-    const code = document.createElement('small');
-    code.className = 'card-meta';
-    code.textContent = `Codi: ${card.code}`;
-    body.appendChild(code);
-  }
-
-  if (card.linked_yearly_code) {
-    const linked = document.createElement('small');
-    linked.className = 'card-meta';
-    linked.textContent = `Vinculat: ${card.linked_yearly_code}`;
-    body.appendChild(linked);
-  }
-
-  const actions = document.createElement('div');
-  actions.className = 'card-actions';
-
-  const editBtn = document.createElement('button');
-  editBtn.className = 'edit-card';
-  editBtn.textContent = '✎';
-  editBtn.title = 'Editar card';
-  editBtn.addEventListener('click', async () => {
-    try {
-      await openEditCardDialog(card);
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  const delBtn = document.createElement('button');
-  delBtn.className = 'delete-card';
-  delBtn.textContent = '✕';
-  delBtn.title = 'Eliminar card';
-  delBtn.addEventListener('click', async () => {
-    await api('card', 'DELETE', { id: card.id });
+  el.querySelector('[data-a="edit"]').onclick = () => openEditor({ mode: 'edit', card });
+  el.querySelector('[data-a="del"]').onclick = async () => {
+    await request('card', 'DELETE', { id: card.id });
     await refresh();
-  });
+  };
 
-  actions.appendChild(editBtn);
-  actions.appendChild(delBtn);
-
-  cardEl.appendChild(body);
-  cardEl.appendChild(actions);
-
-  cardEl.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('application/json', JSON.stringify({ cardId: card.id }));
-  });
-
-  return cardEl;
+  return el;
 }
 
-function fillLinkedCodes(selected = '') {
-  cardLinkedCode.innerHTML = '';
-  const empty = document.createElement('option');
-  empty.value = '';
-  empty.textContent = 'Selecciona un codi...';
-  cardLinkedCode.appendChild(empty);
+function openEditor(ctx) {
+  editCtx = ctx;
+  editor.classList.remove('hidden');
 
+  if (ctx.mode === 'create') {
+    editorTitle.textContent = 'Nova card';
+    fieldTitle.value = '';
+    fieldDescription.value = '';
+    fieldCode.value = '';
+    populateLinked('');
+    setupEditorByColumn(ctx.columnId);
+  } else {
+    editorTitle.textContent = 'Editar card';
+    fieldTitle.value = ctx.card.title || '';
+    fieldDescription.value = ctx.card.description || '';
+    fieldCode.value = ctx.card.code || '';
+    populateLinked(ctx.card.linked_yearly_code || '');
+    setupEditorByColumn(ctx.card.column_id);
+  }
+}
+
+function setupEditorByColumn(columnId) {
+  const isYearly = Number(columnId) === Number(board.yearly_column_id);
+  codeRow.style.display = isYearly ? 'block' : 'none';
+  linkedRow.style.display = isYearly ? 'none' : 'block';
+
+  fieldCode.required = isYearly;
+  fieldLinked.required = !isYearly;
+}
+
+function populateLinked(selected) {
+  fieldLinked.innerHTML = '<option value="">Selecciona...</option>';
   board.yearly_codes.forEach((code) => {
-    const option = document.createElement('option');
-    option.value = code;
-    option.textContent = code;
-    option.selected = code === selected;
-    cardLinkedCode.appendChild(option);
+    const o = document.createElement('option');
+    o.value = code;
+    o.textContent = code;
+    o.selected = code === selected;
+    fieldLinked.appendChild(o);
   });
 }
 
+saveBtn.addEventListener('click', async () => {
+  if (!editCtx) return;
 
-
-function dialogSupported() {
-  return !!(cardDialog && typeof cardDialog.showModal === 'function');
-}
-
-async function promptCardData({ isYearly, initialTitle = '', initialDescription = '', initialCode = '', initialLinked = '' }) {
-  const title = prompt('Títol de la card', initialTitle || '');
-  if (!title) return null;
-
-  const description = prompt('Descripció (opcional)', initialDescription || '') || '';
-
-  if (isYearly) {
-    const code = prompt('Codi yearly únic (obligatori)', initialCode || '');
-    if (!code) {
-      alert('El codi yearly és obligatori');
-      return null;
-    }
-    return { title: title.trim(), description: description.trim(), code: code.trim(), linked_yearly_code: null };
-  }
-
-  if (board.yearly_codes.length === 0) {
-    alert('No hi ha codis yearly disponibles. Crea primer una card a Yearly goals.');
-    return null;
-  }
-
-  const options = board.yearly_codes.join(', ');
-  const linked = prompt(`Codi yearly vinculat (opcions: ${options})`, initialLinked || board.yearly_codes[0]);
-  if (!linked || !board.yearly_codes.includes(linked.trim())) {
-    alert("Has d'escollir un codi yearly vàlid");
-    return null;
-  }
-
-  return { title: title.trim(), description: description.trim(), code: null, linked_yearly_code: linked.trim() };
-}
-
-function configureCardDialogFields(isYearly) {
-  yearlyCodeRow.style.display = isYearly ? 'block' : 'none';
-  linkedCodeRow.style.display = isYearly ? 'none' : 'block';
-  cardCode.required = isYearly;
-  cardLinkedCode.required = !isYearly;
-}
-
-async function openCreateCardDialog(objectiveId, columnId) {
-  currentCardContext = {
-    mode: 'create',
-    objective_id: Number(objectiveId),
-    column_id: Number(columnId),
-    id: null,
-  };
-
-  const isYearly = currentCardContext.column_id === getYearlyColumnId();
-
-  if (!dialogSupported()) {
-    const payload = await promptCardData({ isYearly });
-    if (!payload) return;
-    await api('card', 'POST', {
-      ...payload,
-      objective_id: currentCardContext.objective_id,
-      column_id: currentCardContext.column_id,
-    });
-    await refresh();
-    return;
-  }
-
-  cardDialogTitle.textContent = 'Nova card';
-  cardTitle.value = '';
-  cardDescription.value = '';
-  cardCode.value = '';
-  fillLinkedCodes('');
-
-  configureCardDialogFields(isYearly);
-
-  if (!isYearly && board.yearly_codes.length === 0) {
-    alert('Primer has de crear almenys una card a Yearly goals amb codi únic.');
-    return;
-  }
-
-  cardDialog.showModal();
-}
-
-async function openEditCardDialog(card) {
-  currentCardContext = {
-    mode: 'edit',
-    id: Number(card.id),
-    objective_id: Number(card.objective_id),
-    column_id: Number(card.column_id),
-  };
-
-  const isYearly = currentCardContext.column_id === getYearlyColumnId();
-
-  if (!dialogSupported()) {
-    const payload = await promptCardData({
-      isYearly,
-      initialTitle: card.title || '',
-      initialDescription: card.description || '',
-      initialCode: card.code || '',
-      initialLinked: card.linked_yearly_code || '',
-    });
-    if (!payload) return;
-    await api('card', 'PUT', { id: currentCardContext.id, ...payload });
-    await refresh();
-    return;
-  }
-
-  cardDialogTitle.textContent = 'Editar card';
-  cardTitle.value = card.title || '';
-  cardDescription.value = card.description || '';
-  cardCode.value = card.code || '';
-  fillLinkedCodes(card.linked_yearly_code || '');
-
-  configureCardDialogFields(isYearly);
-
-  cardDialog.showModal();
-}
-
-if (cardCancelBtn) {
-  cardCancelBtn.addEventListener('click', () => {
-    cardDialog.close();
-  });
-}
-
-cardForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  if (!currentCardContext) return;
+  const title = fieldTitle.value.trim();
+  if (!title) return alert('Títol obligatori');
 
   const payload = {
-    title: cardTitle.value.trim(),
-    description: cardDescription.value.trim(),
-    code: cardCode.value.trim(),
-    linked_yearly_code: cardLinkedCode.value,
+    title,
+    description: fieldDescription.value.trim(),
+    code: fieldCode.value.trim() || null,
+    linked_yearly_code: fieldLinked.value || null,
   };
 
-  if (!payload.title) {
-    alert('El títol és obligatori');
-    return;
-  }
-
-  const isYearly = currentCardContext.column_id === getYearlyColumnId();
-
   try {
-    if (currentCardContext.mode === 'create') {
-      await api('card', 'POST', {
+    if (editCtx.mode === 'create') {
+      await request('card', 'POST', {
         ...payload,
-        objective_id: currentCardContext.objective_id,
-        column_id: currentCardContext.column_id,
-        code: isYearly ? payload.code : null,
-        linked_yearly_code: isYearly ? null : payload.linked_yearly_code,
+        objective_id: editCtx.objectiveId,
+        column_id: editCtx.columnId,
       });
     } else {
-      await api('card', 'PUT', {
-        id: currentCardContext.id,
-        title: payload.title,
-        description: payload.description,
-        code: isYearly ? payload.code : null,
-        linked_yearly_code: isYearly ? null : payload.linked_yearly_code,
+      await request('card', 'PUT', {
+        id: editCtx.card.id,
+        ...payload,
       });
     }
 
-    cardForm.reset();
-    currentCardContext = null;
-    cardDialog.close();
+    closeEditor();
     await refresh();
   } catch (err) {
     alert(err.message);
   }
 });
 
-async function onCardDrop(event, td) {
-  event.preventDefault();
-  const payload = JSON.parse(event.dataTransfer.getData('application/json') || '{}');
-  if (!payload.cardId) return;
+cancelBtn.addEventListener('click', closeEditor);
 
-  const objectiveId = Number(td.dataset.objectiveId);
-  const columnId = Number(td.dataset.columnId);
-  const cardCount = td.querySelectorAll('.card').length;
-  const newPosition = cardCount + 1;
-
-  try {
-    await api('card-move', 'PUT', {
-      id: payload.cardId,
-      objective_id: objectiveId,
-      column_id: columnId,
-      position: newPosition,
-    });
-    await refresh();
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-async function onObjectiveAction(event, objective) {
-  const btn = event.target.closest('button');
-  if (!btn) return;
-
-  const action = btn.dataset.action;
-  if (action === 'add-child') {
-    const title = prompt('Títol del subobjectiu');
-    if (!title) return;
-    await api('objective', 'POST', { title, parent_id: objective.id });
-  } else if (action === 'move-up') {
-    await api('objective-move', 'PUT', { id: objective.id, direction: 'up' });
-  } else if (action === 'move-down') {
-    await api('objective-move', 'PUT', { id: objective.id, direction: 'down' });
-  } else if (action === 'delete') {
-    if (!confirm('Eliminar objectiu i subobjectius?')) return;
-    await api('objective', 'DELETE', { id: objective.id });
-  }
-
-  await refresh();
+function closeEditor() {
+  editCtx = null;
+  editor.classList.add('hidden');
 }
 
 addRootObjectiveBtn.addEventListener('click', async () => {
-  const title = prompt('Títol del nou objectiu estratègic');
-  if (!title) return;
-  await api('objective', 'POST', { title, parent_id: null });
+  const t = prompt('Títol objectiu estratègic');
+  if (!t) return;
+  await request('objective', 'POST', { title: t });
   await refresh();
 });
 
 async function refresh() {
-  const data = await api('board', 'GET');
-  board = data.data;
-  renderBoard();
+  board = await request('board', 'GET');
+  render();
 }
 
-refresh().catch((err) => {
-  console.error(err);
-  alert(`Error carregant el panell: ${err.message}`);
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.innerText = str ?? '';
+  return div.innerHTML;
+}
+
+refresh().catch((e) => {
+  console.error(e);
+  alert(e.message);
 });

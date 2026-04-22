@@ -1,19 +1,15 @@
-# Hoshin webapp (PHP + SQL + JavaScript)
+# Hoshin webapp (reinici net)
 
 ## Requisits
 - PHP 8.1+
-- MySQL 8+ (o MariaDB compatible)
+- MySQL 8+ o MariaDB
 
-## Configuració
-1. Crea la base de dades executant `sql/schema.sql`.
-2. Configura credencials amb variables d'entorn (opcional):
-   - `DB_HOST`
-   - `DB_PORT`
-   - `DB_NAME`
-   - `DB_USER`
-   - `DB_PASS`
+## Instal·lació
+1. Executa `sql/schema.sql`.
+2. (Opcional) configura variables:
+   - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`
 
-## Executar en local
+## Execució
 ```bash
 cd public
 php -S localhost:8000
@@ -21,14 +17,11 @@ php -S localhost:8000
 
 Obre: http://localhost:8000
 
-## Funcionalitats incloses
-- Crear, eliminar i reordenar objectius.
-- Crear subobjectius.
-- Crear, editar i eliminar cards dins cada cel·la.
-- Moure cards entre cel·les amb drag & drop.
-- Les cards de **Yearly goals** requereixen un **codi únic**.
-- Les cards de la resta de columnes han d'estar vinculades a un codi yearly seleccionat en un dropdown.
+## Funcions
+- Crear, eliminar i reordenar objectius i subobjectius.
+- Crear, editar, eliminar i moure cards amb drag&drop.
+- Yearly goals: codi únic obligatori.
+- Resta de columnes: cal seleccionar un codi yearly vinculat.
 
-
-## Compatibilitat de dades existents
-- Si la taula `cards` ja existia d'una versió anterior, l'aplicació afegeix automàticament les columnes `code` i `linked_yearly_code` en el primer arrenc.
+## Nota important
+Si venies d'una versió anterior que no funcionava bé, elimina i recrea la BD amb `sql/schema.sql` abans de provar aquest reinici.

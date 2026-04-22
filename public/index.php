@@ -9,48 +9,42 @@
 <body>
   <header>
     <h1>Hoshin Board</h1>
-    <button id="addRootObjectiveBtn">+ Objectiu estratègic</button>
+    <button id="addRootObjectiveBtn">+ Objectiu</button>
   </header>
 
   <main>
     <table id="boardTable">
-      <thead>
-        <tr id="headerRow"></tr>
-      </thead>
+      <thead><tr id="headerRow"></tr></thead>
       <tbody id="boardBody"></tbody>
     </table>
   </main>
 
-  <template id="objectiveControlsTpl">
-    <div class="objective-controls">
-      <button data-action="add-child" title="Subobjectiu">+Sub</button>
-      <button data-action="move-up" title="Pujar">↑</button>
-      <button data-action="move-down" title="Baixar">↓</button>
-      <button data-action="delete" title="Eliminar">✕</button>
-    </div>
-  </template>
+  <aside id="cardEditor" class="hidden">
+    <div class="editor-panel">
+      <h3 id="editorTitle">Card</h3>
 
-  <dialog id="cardDialog">
-    <form id="cardForm">
-      <h3 id="cardDialogTitle">Card</h3>
       <label>Títol
-        <input name="title" id="cardTitle" maxlength="160" required>
+        <input id="fieldTitle" maxlength="160">
       </label>
+
       <label>Descripció
-        <textarea name="description" id="cardDescription" rows="3"></textarea>
+        <textarea id="fieldDescription" rows="4"></textarea>
       </label>
-      <label id="yearlyCodeRow">Codi yearly (únic)
-        <input name="code" id="cardCode" maxlength="50" placeholder="p.ex. YG-001">
+
+      <label id="codeRow">Codi yearly
+        <input id="fieldCode" maxlength="50">
       </label>
-      <label id="linkedCodeRow">Codi yearly vinculat
-        <select name="linked_yearly_code" id="cardLinkedCode"></select>
+
+      <label id="linkedRow">Codi yearly vinculat
+        <select id="fieldLinked"></select>
       </label>
-      <menu>
-        <button id="cardCancelBtn" type="button">Cancel·lar</button>
-        <button id="cardSaveBtn" type="submit">Guardar</button>
-      </menu>
-    </form>
-  </dialog>
+
+      <div class="editor-actions">
+        <button id="cancelCardBtn">Cancel·lar</button>
+        <button id="saveCardBtn">Guardar</button>
+      </div>
+    </div>
+  </aside>
 
   <script src="app.js"></script>
 </body>

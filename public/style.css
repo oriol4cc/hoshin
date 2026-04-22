@@ -1,139 +1,26 @@
 * { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  background: #f5f7fb;
-  color: #1f2937;
-}
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 20px;
-  background: #111827;
-  color: #fff;
-}
-header h1 { margin: 0; font-size: 20px; }
-header button {
-  border: 0;
-  border-radius: 8px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
+body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; }
+header { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#111827; color:#fff; }
+header button { padding:8px 12px; }
 main { padding: 16px; }
 
-#boardTable {
-  border-collapse: collapse;
-  width: 100%;
-  background: #fff;
-}
-#boardTable th,
-#boardTable td {
-  border: 1px solid #d1d5db;
-  vertical-align: top;
-}
-#boardTable th {
-  background: #f3f4f6;
-  padding: 10px;
-  text-align: left;
-}
-.objective-col { min-width: 260px; }
-.objective-cell {
-  min-width: 260px;
-  background: #f9fafb;
-}
-.objective-title {
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-.objective-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.objective-controls button,
-.add-card,
-.delete-card,
-.edit-card {
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 4px 6px;
-}
-.dropzone {
-  min-width: 220px;
-  min-height: 120px;
-  padding: 6px;
-  background: #fff;
-}
+#boardTable { width:100%; border-collapse: collapse; background:#fff; }
+#boardTable th, #boardTable td { border:1px solid #d1d5db; vertical-align: top; padding:6px; }
+.obj-col, .objective-cell { min-width: 240px; }
+.objective-title { font-weight: bold; margin-bottom: 6px; }
+.objective-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.objective-actions button, .add-card, .card-actions button { font-size:12px; padding:4px 6px; }
+.cell { min-width: 220px; min-height: 140px; }
 .add-card { margin-bottom: 8px; }
 
-.card {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: flex-start;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  padding: 8px;
-}
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.card-title {
-  font-size: 13px;
-  line-height: 1.25;
-  font-weight: 600;
-}
-.card-meta {
-  color: #334155;
-  font-size: 11px;
-}
-.card-actions {
-  display: flex;
-  gap: 6px;
-}
+.card { background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:6px; margin-bottom:8px; display:flex; justify-content:space-between; gap:8px; }
+.card-main { display:flex; flex-direction:column; gap:2px; font-size:13px; }
+.card-main small { color:#334155; }
+.card-actions { display:flex; gap:6px; }
 
-#cardDialog {
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  min-width: 380px;
-}
-#cardForm {
-  display: grid;
-  gap: 10px;
-}
-#cardForm label {
-  display: grid;
-  gap: 4px;
-  font-size: 13px;
-}
-#cardForm input,
-#cardForm textarea,
-#cardForm select {
-  width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  padding: 6px 8px;
-}
-#cardForm menu {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-}
-#cardForm menu button {
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #fff;
-  padding: 6px 10px;
-  cursor: pointer;
-}
+#cardEditor { position: fixed; inset: 0; background: rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; }
+#cardEditor.hidden { display:none; }
+.editor-panel { background:#fff; width:min(520px, 92vw); border-radius:10px; padding:16px; display:grid; gap:10px; }
+.editor-panel label { display:grid; gap:4px; font-size:13px; }
+.editor-panel input, .editor-panel textarea, .editor-panel select { width:100%; padding:8px; }
+.editor-actions { display:flex; justify-content:flex-end; gap:8px; }
