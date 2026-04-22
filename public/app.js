@@ -114,7 +114,13 @@ function renderBoard() {
       const addBtn = document.createElement('button');
       addBtn.className = 'add-card';
       addBtn.textContent = '+ Card';
-      addBtn.addEventListener('click', () => openCreateCardDialog(objective.id, column.id));
+      addBtn.addEventListener('click', async () => {
+        try {
+          await openCreateCardDialog(objective.id, column.id);
+        } catch (err) {
+          alert(err.message);
+        }
+      });
       td.appendChild(addBtn);
 
       cardsInCell(objective.id, column.id).forEach((card) => td.appendChild(renderCard(card)));
@@ -164,7 +170,13 @@ function renderCard(card) {
   editBtn.className = 'edit-card';
   editBtn.textContent = '✎';
   editBtn.title = 'Editar card';
-  editBtn.addEventListener('click', () => openEditCardDialog(card));
+  editBtn.addEventListener('click', async () => {
+    try {
+      await openEditCardDialog(card);
+    } catch (err) {
+      alert(err.message);
+    }
+  });
 
   const delBtn = document.createElement('button');
   delBtn.className = 'delete-card';
@@ -205,6 +217,41 @@ function fillLinkedCodes(selected = '') {
 }
 
 
+
+function dialogSupported() {
+  return !!(cardDialog && typeof cardDialog.showModal === 'function');
+}
+
+async function promptCardData({ isYearly, initialTitle = '', initialDescription = '', initialCode = '', initialLinked = '' }) {
+  const title = prompt('Títol de la card', initialTitle || '');
+  if (!title) return null;
+
+  const description = prompt('Descripció (opcional)', initialDescription || '') || '';
+
+  if (isYearly) {
+    const code = prompt('Codi yearly únic (obligatori)', initialCode || '');
+    if (!code) {
+      alert('El codi yearly és obligatori');
+      return null;
+    }
+    return { title: title.trim(), description: description.trim(), code: code.trim(), linked_yearly_code: null };
+  }
+
+  if (board.yearly_codes.length === 0) {
+    alert('No hi ha codis yearly disponibles. Crea primer una card a Yearly goals.');
+    return null;
+  }
+
+  const options = board.yearly_codes.join(', ');
+  const linked = prompt(`Codi yearly vinculat (opcions: ${options})`, initialLinked || board.yearly_codes[0]);
+  if (!linked || !board.yearly_codes.includes(linked.trim())) {
+    alert("Has d'escollir un codi yearly vàlid");
+    return null;
+  }
+
+  return { title: title.trim(), description: description.trim(), code: null, linked_yearly_code: linked.trim() };
+}
+
 function configureCardDialogFields(isYearly) {
   yearlyCodeRow.style.display = isYearly ? 'block' : 'none';
   linkedCodeRow.style.display = isYearly ? 'none' : 'block';
@@ -212,7 +259,7 @@ function configureCardDialogFields(isYearly) {
   cardLinkedCode.required = !isYearly;
 }
 
-function openCreateCardDialog(objectiveId, columnId) {
+async function openCreateCardDialog(objectiveId, columnId) {
   currentCardContext = {
     mode: 'create',
     objective_id: Number(objectiveId),
@@ -220,13 +267,26 @@ function openCreateCardDialog(objectiveId, columnId) {
     id: null,
   };
 
+  const isYearly = currentCardContext.column_id === getYearlyColumnId();
+
+  if (!dialogSupported()) {
+    const payload = await promptCardData({ isYearly });
+    if (!payload) return;
+    await api('card', 'POST', {
+      ...payload,
+      objective_id: currentCardContext.objective_id,
+      column_id: currentCardContext.column_id,
+    });
+    await refresh();
+    return;
+  }
+
   cardDialogTitle.textContent = 'Nova card';
   cardTitle.value = '';
   cardDescription.value = '';
   cardCode.value = '';
   fillLinkedCodes('');
 
-  const isYearly = currentCardContext.column_id === getYearlyColumnId();
   configureCardDialogFields(isYearly);
 
   if (!isYearly && board.yearly_codes.length === 0) {
@@ -237,7 +297,7 @@ function openCreateCardDialog(objectiveId, columnId) {
   cardDialog.showModal();
 }
 
-function openEditCardDialog(card) {
+async function openEditCardDialog(card) {
   currentCardContext = {
     mode: 'edit',
     id: Number(card.id),
@@ -245,21 +305,38 @@ function openEditCardDialog(card) {
     column_id: Number(card.column_id),
   };
 
+  const isYearly = currentCardContext.column_id === getYearlyColumnId();
+
+  if (!dialogSupported()) {
+    const payload = await promptCardData({
+      isYearly,
+      initialTitle: card.title || '',
+      initialDescription: card.description || '',
+      initialCode: card.code || '',
+      initialLinked: card.linked_yearly_code || '',
+    });
+    if (!payload) return;
+    await api('card', 'PUT', { id: currentCardContext.id, ...payload });
+    await refresh();
+    return;
+  }
+
   cardDialogTitle.textContent = 'Editar card';
   cardTitle.value = card.title || '';
   cardDescription.value = card.description || '';
   cardCode.value = card.code || '';
   fillLinkedCodes(card.linked_yearly_code || '');
 
-  const isYearly = currentCardContext.column_id === getYearlyColumnId();
   configureCardDialogFields(isYearly);
 
   cardDialog.showModal();
 }
 
-cardCancelBtn.addEventListener('click', () => {
-  cardDialog.close();
-});
+if (cardCancelBtn) {
+  cardCancelBtn.addEventListener('click', () => {
+    cardDialog.close();
+  });
+}
 
 cardForm.addEventListener('submit', async (event) => {
   event.preventDefault();
