@@ -28,3 +28,7 @@ Obre: http://localhost:8000
 - Moure cards entre cel·les amb drag & drop.
 - Les cards de **Yearly goals** requereixen un **codi únic**.
 - Les cards de la resta de columnes han d'estar vinculades a un codi yearly seleccionat en un dropdown.
+
+
+## Compatibilitat de dades existents
+- Si la taula `cards` ja existia d'una versió anterior, l'aplicació afegeix automàticament les columnes `code` i `linked_yearly_code` en el primer arrenc.
