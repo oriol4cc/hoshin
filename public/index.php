@@ -31,7 +31,7 @@
   </template>
 
   <dialog id="cardDialog">
-    <form method="dialog" id="cardForm">
+    <form id="cardForm">
       <h3 id="cardDialogTitle">Card</h3>
       <label>Títol
         <input name="title" id="cardTitle" maxlength="160" required>
@@ -46,8 +46,8 @@
         <select name="linked_yearly_code" id="cardLinkedCode"></select>
       </label>
       <menu>
-        <button value="cancel">Cancel·lar</button>
-        <button id="cardSaveBtn" value="default">Guardar</button>
+        <button id="cardCancelBtn" type="button">Cancel·lar</button>
+        <button id="cardSaveBtn" type="submit">Guardar</button>
       </menu>
     </form>
   </dialog>

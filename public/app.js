@@ -14,6 +14,7 @@ const cardCode = document.getElementById('cardCode');
 const cardLinkedCode = document.getElementById('cardLinkedCode');
 const yearlyCodeRow = document.getElementById('yearlyCodeRow');
 const linkedCodeRow = document.getElementById('linkedCodeRow');
+const cardCancelBtn = document.getElementById('cardCancelBtn');
 
 let board = { columns: [], objectives: [], cards: [], yearly_codes: [] };
 let currentCardContext = null;
@@ -203,6 +204,14 @@ function fillLinkedCodes(selected = '') {
   });
 }
 
+
+function configureCardDialogFields(isYearly) {
+  yearlyCodeRow.style.display = isYearly ? 'block' : 'none';
+  linkedCodeRow.style.display = isYearly ? 'none' : 'block';
+  cardCode.required = isYearly;
+  cardLinkedCode.required = !isYearly;
+}
+
 function openCreateCardDialog(objectiveId, columnId) {
   currentCardContext = {
     mode: 'create',
@@ -218,8 +227,7 @@ function openCreateCardDialog(objectiveId, columnId) {
   fillLinkedCodes('');
 
   const isYearly = currentCardContext.column_id === getYearlyColumnId();
-  yearlyCodeRow.style.display = isYearly ? 'block' : 'none';
-  linkedCodeRow.style.display = isYearly ? 'none' : 'block';
+  configureCardDialogFields(isYearly);
 
   if (!isYearly && board.yearly_codes.length === 0) {
     alert('Primer has de crear almenys una card a Yearly goals amb codi únic.');
@@ -244,11 +252,14 @@ function openEditCardDialog(card) {
   fillLinkedCodes(card.linked_yearly_code || '');
 
   const isYearly = currentCardContext.column_id === getYearlyColumnId();
-  yearlyCodeRow.style.display = isYearly ? 'block' : 'none';
-  linkedCodeRow.style.display = isYearly ? 'none' : 'block';
+  configureCardDialogFields(isYearly);
 
   cardDialog.showModal();
 }
+
+cardCancelBtn.addEventListener('click', () => {
+  cardDialog.close();
+});
 
 cardForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -287,6 +298,8 @@ cardForm.addEventListener('submit', async (event) => {
       });
     }
 
+    cardForm.reset();
+    currentCardContext = null;
     cardDialog.close();
     await refresh();
   } catch (err) {
